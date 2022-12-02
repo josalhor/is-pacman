@@ -62,6 +62,50 @@ class ValueIterationAgent(ValueEstimationAgent):
     def runValueIteration(self):
         # Write value iteration code here
         "*** YOUR CODE HERE ***"
+        states = self.mdp.getStates()
+        # init V0 = 0
+        converges = False
+        it = iter(states)
+        self.values = self.values + dict(zip(it, [0] * len(states)))
+
+        # ITERATION
+        while not converges and self.iterations != 0:
+            new_values = self.values.copy()
+
+            for state in states:
+                state_actions = self.mdp.getPossibleActions(state)
+                if len(state_actions) == 0:
+                    continue
+                values = []
+                for action in state_actions:
+                    value = 0
+                    transitions = self.mdp.getTransitionStatesAndProbs(state, action)
+                    # COMPUTE Q(s)'s
+                    for transition in transitions:
+                        value += transition[1] * (
+                            self.mdp.getReward(state, action, transition[0]) + 
+                            self.discount * self.values[state]
+                            )
+
+                    values.append(value)
+                # UPDATE Vk values
+                new_values[state] = max(values)
+
+            # COMPARE Vk with Vk+1
+            equal_dicts = True
+            for key in self.values.keys():
+                if self.values[key] != new_values[key]:
+                    equal_dicts = False
+                    break
+
+            if equal_dicts:
+                converges = True
+
+            self.iterations = self.iterations - 1
+            # UPDATE DICT VALUES FOR THIS ITERATION
+            self.values = new_values
+
+        return self.values
 
 
     def getValue(self, state):
@@ -89,7 +133,10 @@ class ValueIterationAgent(ValueEstimationAgent):
           terminal state, you should return None.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        if self.mdp.isTerminal(state):
+            return None
+        else:
+            return None
 
     def getPolicy(self, state):
         return self.computeActionFromValues(state)
