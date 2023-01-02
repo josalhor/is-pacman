@@ -81,10 +81,10 @@ class ValueIterationAgent(ValueEstimationAgent):
                     value = 0
                     transitions = self.mdp.getTransitionStatesAndProbs(state, action)
                     # COMPUTE Q(s)'s
-                    for transition in transitions:
-                        value += transition[1] * (
-                            self.mdp.getReward(state, action, transition[0]) + 
-                            self.discount * self.values[state]
+                    for new_state, p in transitions:
+                        value += p * (
+                            self.mdp.getReward(state, action, new_state) + 
+                            self.discount * self.values[new_state]
                             )
 
                     values.append(value)
