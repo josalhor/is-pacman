@@ -293,7 +293,46 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        v = float("-inf")
+        actions = []
+        for action in gameState.getLegalActions(agentIndex=0):
+            succ = gameState.getNextState(agentIndex=0, action=action)
+            u = self.min_value(
+                succ, agent=1, depth=self.depth
+            )
+            if u == v:
+                actions.append(action)
+            elif u > v:
+                v = u
+                actions = [action]
+        # return random.choice(actions)
+        return actions[0]
+    
+    def min_value(self, gameState, agent, depth):
+        if self.terminal_test(gameState, depth):
+            return self.evaluationFunction(gameState)
+
+        acc_cost = 0
+        actions = gameState.getLegalActions(agentIndex=agent)
+        for action in actions:
+            succ = gameState.getNextState(agent, action=action)
+            if agent == gameState.getNumAgents() - 1:
+                acc_cost += self.max_value(succ, agent=0, depth=depth -1)
+            else:
+                acc_cost += self.min_value(succ, agent=agent +1, depth=depth)
+        return acc_cost / len(actions)
+    
+    def max_value(self, gameState, agent, depth):
+        if self.terminal_test(gameState, depth):
+            return self.evaluationFunction(gameState)
+
+        v = float("-inf")
+        for action in gameState.getLegalActions(agent):
+            succ = gameState.getNextState(agent, action=action)
+            v = max(
+                v, self.min_value(succ, agent=1, depth=depth)
+            )
+        return v
 
 def betterEvaluationFunction(currentGameState):
     """
@@ -302,13 +341,38 @@ def betterEvaluationFunction(currentGameState):
 
     DESCRIPTION: <write something here so we know what you did>
     """
-    "*** YOUR CODE HERE ***"
+    score = currentGameState.getScore()
+    food = currentGameState.getFood().asList()
+    pacman = currentGameState.getPacmanPosition()
+    capsules = currentGameState.getCapsules()
+    newGhostStates = currentGameState.getGhostStates()
+    
+    total_score = score
+    for position in food:
+        d = manhattanDistance(position, pacman)
+        assert d > 0
+        total_score += 5.0 / (d ** 2)
+    
+    closestCapsule = None
+    for capsule in capsules:
+        if closestCapsule is None:
+            closestCapsule = capsule
+        elif manhattanDistance(capsule, pacman) < manhattanDistance(closestCapsule, pacman):
+            closestCapsule = capsule
+    
+    if closestCapsule is not None:
+        total_score += 100 / (manhattanDistance(closestCapsule, pacman) ** 2)
 
-    # compute position score
-
-    # compute ghost hunting
-
-    # compute ghost positioning
+    for ghost in newGhostStates:
+        d = manhattanDistance(ghost.getPosition(), pacman)
+        if d == 0:
+            total_score += -250
+        else:
+            base = -10
+            if ghost.scaredTimer or (closestCapsule is not None and d >= manhattanDistance(closestCapsule, pacman)):
+                base = 50
+            total_score += base / (d ** 2)
+    return total_score
 
 # Abbreviation
 better = betterEvaluationFunction

@@ -17,6 +17,7 @@
 import cgi
 import time
 import sys
+import html
 import json
 import traceback
 from collections import defaultdict
@@ -298,7 +299,7 @@ to follow your instructor's guidelines to receive credit on your project.
             print('*** ' + message)
             if self.mute:
                 util.mutePrint()
-            message = cgi.escape(message)
+            message = html.escape(message)
         self.messages[self.currentQuestion].append(message)
 
     def addMessageToEmail(self, message):
