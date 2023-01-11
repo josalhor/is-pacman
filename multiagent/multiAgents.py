@@ -195,6 +195,108 @@ class MinimaxAgent(MultiAgentSearchAgent):
             )
         return v
 
+class ExplorationNode:
+    def __init__(self, exploration, gameState, agent, depth, action=None, parent=None):
+        self.exploration = exploration
+        self.gameState = gameState
+        self.agent = agent
+        self.depth = depth
+        self.best_cost = None
+        self.parent = parent
+        self.action = action
+        self.best_action_to_take = []
+        self.valid_actions = None
+    
+    def is_max_node(self):
+        return self.agent == 0
+    
+    def new_cost(self, cost, action):
+        if self.best_cost is None:
+            self.best_cost = cost
+            self.best_action_to_take = [action]
+            return
+        if self.is_max_node():
+            if self.best_cost < cost:
+                self.best_cost = cost
+                self.best_action_to_take = [action]
+            if self.best_cost == cost:
+                self.best_action_to_take.append(action)
+        else:
+            if self.best_cost > cost:
+                self.best_cost = cost
+                self.best_action_to_take = [action]
+            if self.best_cost == cost:
+                self.best_action_to_take.append(action)
+    
+    def is_terminal(self):
+        return self.exploration.terminal_test(self.gameState, self.depth)
+    
+    @property
+    def explored(self):
+        if self.valid_actions is None:
+            self.valid_actions = list(self.gameState.getLegalActions(agentIndex=self.agent))
+            self.valid_actions = self.valid_actions[::-1]
+        return len(self.valid_actions) == 0
+    
+    def evaluate(self):
+        if not self.is_terminal():
+            evaluation = self.best_cost
+        else:
+            evaluation = self.exploration.evaluationFunction(self.gameState)
+
+        if self.parent is not None:
+            self.parent.new_cost(evaluation, self.action)
+        return evaluation
+    
+    def get_child_attributes(self):
+        next_depth = self.depth
+        next_agent = self.agent + 1
+        if next_agent == self.gameState.getNumAgents():
+            next_agent = 0
+            next_depth -= 1
+        return next_agent, next_depth
+
+    def get_successor(self):
+        next_agent, next_depth = self.get_child_attributes()
+        action = self.valid_actions.pop()
+        return ExplorationNode(
+            self.exploration,
+            self.gameState.getNextState(self.agent, action=action),
+            agent=next_agent,
+            depth=next_depth,
+            parent=self,
+            action=action
+        )  
+
+class AlphaBetaExplorationNode(ExplorationNode):
+    def __init__(self, *args, **kwargs):
+        self.pruning = kwargs.pop('pruning').copy()
+        super().__init__(*args, **kwargs)
+    
+    def new_cost(self, cost, action):
+        super().new_cost(cost, action)
+        if self.is_max_node():
+            self.pruning["alpha"] = max(self.pruning["alpha"], self.best_cost)
+            if self.best_cost > self.pruning["beta"]:
+                self.valid_actions = []
+        else:
+            self.pruning["beta"] = min(self.pruning["beta"], self.best_cost)
+            if self.best_cost < self.pruning["alpha"]:
+                self.valid_actions = []
+    
+    def get_successor(self):
+        next_agent, next_depth = self.get_child_attributes()
+        action = self.valid_actions.pop()
+        return AlphaBetaExplorationNode(
+            self.exploration,
+            self.gameState.getNextState(self.agent, action=action),
+            agent=next_agent,
+            depth=next_depth,
+            parent=self,
+            action=action,
+            pruning=self.pruning,
+        )  
+
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -218,7 +320,99 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
                 succ, agent=1, depth=self.depth, pruning=pruning
             )
             """
-            We removed this part sa we don't need a list of actions, we want the first one
+            We removed this part as we don't need a list of actions, we want the first one
+            as we would have explored a more complete version of the tree
+            if u == v:
+                actions.append(action)
+            
+            """
+            if u > v:
+                v = u
+                actions = [action]
+            pruning["alpha"] = max(pruning["alpha"], v)
+        return actions[0]
+
+    def min_value(self, gameState, agent, depth, pruning):
+        if self.terminal_test(gameState, depth):
+            return self.evaluationFunction(gameState)
+
+        v = float("inf")
+        _pruning = pruning.copy()
+        for action in gameState.getLegalActions(agentIndex=agent):
+            succ = gameState.getNextState(agent, action=action)
+            if agent == gameState.getNumAgents() - 1:
+                v = min(
+                    v, self.max_value(succ, agent=0, depth=depth -1, pruning=_pruning)
+                )
+            else:
+                v = min(
+                    v, self.min_value(succ, agent=agent +1, depth=depth, pruning=_pruning)
+                )
+            
+            if v < pruning["alpha"]:
+                return v
+            _pruning["beta"] = min(_pruning["beta"], v)
+
+        return v
+
+    def max_value(self, gameState, agent, depth, pruning):
+        if self.terminal_test(gameState, depth):
+            return self.evaluationFunction(gameState)
+
+        v = float("-inf")
+        _pruning=pruning.copy()
+        for action in gameState.getLegalActions(agent):
+            succ = gameState.getNextState(agent, action=action)
+            v = max(
+                v, self.min_value(succ, agent=1, depth=depth, pruning=_pruning)
+            )
+
+            if v > pruning["beta"]:
+                return v
+            _pruning["alpha"] = max(_pruning["alpha"], v)
+        return v
+
+class IterativeAlphaBetaAgent(MultiAgentSearchAgent):
+    """
+    Your minimax agent with alpha-beta pruning (question 3)
+    """
+
+    def getAction(self, gameState):
+        """
+        Returns the minimax action using self.depth and self.evaluationFunction
+        """
+        "*** YOUR CODE HERE ***"
+        root = AlphaBetaExplorationNode(
+            self,
+            gameState,
+            agent=0,
+            depth=self.depth,
+            pruning={
+                "alpha": float("-inf"),
+                "beta": float("inf")
+            }
+        )
+        states = [root]
+        while states:
+            current = states.pop()        
+            if current.is_terminal() or current.explored:
+                current.evaluate()
+            else:
+                successor = current.get_successor()
+                states.append(current)
+                states.append(successor)
+        
+        actions = root.best_action_to_take
+        return actions[0]
+        v = float("-inf")
+        actions = []
+        for action in gameState.getLegalActions(agentIndex=0):
+            succ = gameState.getNextState(agentIndex=0, action=action)
+            u = self.min_value(
+                succ, agent=1, depth=self.depth, pruning=pruning
+            )
+            """
+            We removed this part as we don't need a list of actions, we want the first one
             as we would have explored a more complete version of the tree
             if u == v:
                 actions.append(action)
@@ -271,73 +465,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         return v
 
 
-class ExplorationNode:
-    def __init__(self, exploration, gameState, agent, depth, action=None, parent=None):
-        self.exploration = exploration
-        self.gameState = gameState
-        self.agent = agent
-        self.depth = depth
-        self.best_cost = None
-        self.parent = parent
-        self.action = action
-        self.best_action_to_take = []
-        self.valid_actions = None
-    
-    def is_max_node(self):
-        return self.agent == 0
-    
-    def new_cost(self, cost, action):
-        if self.best_cost is None:
-            self.best_cost = cost
-            self.best_action_to_take = [action]
-            return
-        if self.is_max_node():
-            if self.best_cost < cost:
-                self.best_cost = cost
-                self.best_action_to_take = [action]
-            if self.best_cost == cost:
-                self.best_action_to_take.append(action)
-        else:
-            if self.best_cost > cost:
-                self.best_cost = cost
-                self.best_action_to_take = [action]
-            if self.best_cost == cost:
-                self.best_action_to_take.append(action)
-    
-    def is_terminal(self):
-        return self.exploration.terminal_test(self.gameState, self.depth)
-    
-    @property
-    def explored(self):
-        if self.valid_actions is None:
-            self.valid_actions = self.gameState.getLegalActions(agentIndex=self.agent)
-        return len(self.valid_actions) == 0
-    
-    def evaluate(self):
-        if not self.is_terminal():
-            evaluation = self.best_cost
-        else:
-            evaluation = self.exploration.evaluationFunction(self.gameState)
 
-        if self.parent is not None:
-            self.parent.new_cost(evaluation, self.action)
-        return evaluation
-
-    def get_successor(self):
-        depth = self.depth
-        next_agent = self.agent + 1
-        if next_agent == self.gameState.getNumAgents():
-            next_agent = 0
-            depth -= 1
-        action = self.valid_actions.pop()
-        return ExplorationNode(
-            self.exploration,
-            self.gameState.getNextState(self.agent, action=action),
-            agent=next_agent,
-            depth=depth,
-            parent=self,
-            action=action
-        )  
 
 class IterativeMinimaxAgent(MultiAgentSearchAgent):
     """
