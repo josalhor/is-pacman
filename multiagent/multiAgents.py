@@ -119,6 +119,9 @@ class MultiAgentSearchAgent(Agent):
     def terminal_test(self, state, depth):
         return depth == 0 or state.isWin() or state.isLose()
 
+
+
+
 class MinimaxAgent(MultiAgentSearchAgent):
     """
     Your minimax agent (question 2)
@@ -191,6 +194,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
                 v, self.min_value(succ, agent=1, depth=depth)
             )
         return v
+
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -267,6 +271,71 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         return v
         
 
+class ExplorationNode:
+    def __init__(self, exploration, gameState, agent, depth, action=None, parent=None):
+        self.exploration = exploration
+        self.gameState = gameState
+        self.agent = agent
+        self.depth = depth
+        self.best_cost = None
+        self.parent = parent
+        self.action = action
+        self.best_action_to_take = []
+        self.explored = False
+    
+    def is_max_node(self):
+        return self.agent == 0
+    
+    def new_cost(self, cost, action):
+        if self.best_cost is None:
+            self.best_cost = cost
+            self.best_action_to_take = [action]
+            return
+        if self.is_max_node():
+            if self.best_cost < cost:
+                self.best_cost = cost
+                self.best_action_to_take = [action]
+            if self.best_cost == cost:
+                self.best_action_to_take.append(action)
+        else:
+            if self.best_cost > cost:
+                self.best_cost = cost
+                self.best_action_to_take = [action]
+            if self.best_cost == cost:
+                self.best_action_to_take.append(action)
+    
+    def is_terminal(self):
+        return self.exploration.terminal_test(self.gameState, self.depth)
+    
+    def evaluate(self):
+        if not self.is_terminal():
+            evaluation = self.best_cost
+        else:
+            evaluation = self.exploration.evaluationFunction(self.gameState)
+
+        if self.parent is not None:
+            self.parent.new_cost(evaluation, self.action)
+        return evaluation
+
+    def get_successors(self):
+        self.explored = True
+        depth = self.depth
+        next_agent = self.agent + 1
+        if next_agent == self.gameState.getNumAgents():
+            next_agent = 0
+            depth -= 1
+        return [
+            ExplorationNode(
+                self.exploration,
+                self.gameState.getNextState(self.agent, action=action),
+                agent=next_agent,
+                depth=depth,
+                parent=self,
+                action=action
+            )
+            for action in self.gameState.getLegalActions(agentIndex=self.agent)
+        ]
+
 class IterativeMinimaxAgent(MultiAgentSearchAgent):
     """
     Your minimax agent with alpha-beta pruning (question 3)
@@ -278,7 +347,24 @@ class IterativeMinimaxAgent(MultiAgentSearchAgent):
         """
         "*** YOUR CODE HERE ***"
 
-        util.raiseNotDefined()
+        root = ExplorationNode(
+            self,
+            gameState,
+            agent=0,
+            depth=self.depth
+        )
+        states = [root]
+        while states:
+            current = states.pop()        
+            if current.is_terminal() or current.explored:
+                current.evaluate()
+            else:
+                successors = current.get_successors()
+                states.append(current)
+                states.extend(successors)
+        
+        actions = root.best_action_to_take
+        return actions[0]
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
