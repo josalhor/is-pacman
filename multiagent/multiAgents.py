@@ -269,7 +269,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
                 return v
             _pruning["alpha"] = max(_pruning["alpha"], v)
         return v
-        
+
 
 class ExplorationNode:
     def __init__(self, exploration, gameState, agent, depth, action=None, parent=None):
@@ -281,7 +281,7 @@ class ExplorationNode:
         self.parent = parent
         self.action = action
         self.best_action_to_take = []
-        self.explored = False
+        self.valid_actions = None
     
     def is_max_node(self):
         return self.agent == 0
@@ -307,6 +307,12 @@ class ExplorationNode:
     def is_terminal(self):
         return self.exploration.terminal_test(self.gameState, self.depth)
     
+    @property
+    def explored(self):
+        if self.valid_actions is None:
+            self.valid_actions = self.gameState.getLegalActions(agentIndex=self.agent)
+        return len(self.valid_actions) == 0
+    
     def evaluate(self):
         if not self.is_terminal():
             evaluation = self.best_cost
@@ -317,24 +323,21 @@ class ExplorationNode:
             self.parent.new_cost(evaluation, self.action)
         return evaluation
 
-    def get_successors(self):
-        self.explored = True
+    def get_successor(self):
         depth = self.depth
         next_agent = self.agent + 1
         if next_agent == self.gameState.getNumAgents():
             next_agent = 0
             depth -= 1
-        return [
-            ExplorationNode(
-                self.exploration,
-                self.gameState.getNextState(self.agent, action=action),
-                agent=next_agent,
-                depth=depth,
-                parent=self,
-                action=action
-            )
-            for action in self.gameState.getLegalActions(agentIndex=self.agent)
-        ]
+        action = self.valid_actions.pop()
+        return ExplorationNode(
+            self.exploration,
+            self.gameState.getNextState(self.agent, action=action),
+            agent=next_agent,
+            depth=depth,
+            parent=self,
+            action=action
+        )  
 
 class IterativeMinimaxAgent(MultiAgentSearchAgent):
     """
@@ -359,9 +362,9 @@ class IterativeMinimaxAgent(MultiAgentSearchAgent):
             if current.is_terminal() or current.explored:
                 current.evaluate()
             else:
-                successors = current.get_successors()
+                successor = current.get_successor()
                 states.append(current)
-                states.extend(successors)
+                states.append(successor)
         
         actions = root.best_action_to_take
         return actions[0]
