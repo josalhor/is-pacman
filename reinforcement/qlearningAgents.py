@@ -49,10 +49,7 @@ class QLearningAgent(ReinforcementAgent):
           Should return 0.0 if we have never seen a state
           or the Q node value otherwise
         """
-        qval = self.qvalues.get((state, action), None)
-        if qval is None:
-          return 0.0
-        return qval
+        return self.qvalues.get((state, action), 0.0)
 
 
     def computeValueFromQValues(self, state):
@@ -65,7 +62,12 @@ class QLearningAgent(ReinforcementAgent):
         actions = self.getLegalActions(state)
         if not actions:
           return 0.0
-        return max(self.getQValue(state, action) for action in actions)
+        
+        # Pick max Q Value
+        return max(
+            self.getQValue(state, action)
+            for action in actions
+        )
 
     def computeActionFromQValues(self, state):
         """
@@ -73,12 +75,16 @@ class QLearningAgent(ReinforcementAgent):
           are no legal actions, which is the case at the terminal state,
           you should return None.
         """
-        best_actions = [
+        # Get all actions and their QValue
+        possible_actions = [
           (action, self.getQValue(state, action))
           for action in self.getLegalActions(state)
         ]
-        best_value = max(map(lambda x: x[1], best_actions))
-        best_action, _ = random.choice(list(filter(lambda x: x[1] == best_value, best_actions)))
+        # get the best q value
+        best_value = max(map(lambda x: x[1], possible_actions))
+        # filter the best actions and resolve draws with random choice
+        best_actions = list(filter(lambda x: x[1] == best_value, possible_actions))
+        best_action, _ = random.choice(best_actions)
         return best_action
 
     def getAction(self, state):
@@ -92,6 +98,8 @@ class QLearningAgent(ReinforcementAgent):
           HINT: You might want to use util.flipCoin(prob)
           HINT: To pick randomly from a list, use random.choice(list)
         """
+        # I actually wanted to make a comment documenting this method
+        # but the comment on it is way too self explanatory...
         legalActions = self.getLegalActions(state)
         if not legalActions:
           return None
@@ -108,9 +116,12 @@ class QLearningAgent(ReinforcementAgent):
           NOTE: You should never call this function,
           it will be called on your behalf
         """
-        self.qvalues[(state, action)] = (1 - self.alpha) * self.getQValue(state, action) + self.alpha * (
-          reward + self.discount * self.computeValueFromQValues(nextState)
-        )
+        # This is basically just the formula for the moving average
+        # Programming it is easier than understading what it is doing tho
+        # Q(s, a) ← (1 − α)Q(s, a) + α[r + γ max a′ / Q(s′, a′) /]
+        previous_weight = (1 - self.alpha) * self.getQValue(state, action)
+        new_weight = self.alpha * (reward + self.discount * self.computeValueFromQValues(nextState))
+        self.qvalues[(state, action)] = previous_weight + new_weight
 
     def getPolicy(self, state):
         return self.computeActionFromQValues(state)
@@ -172,9 +183,9 @@ class ApproximateQAgent(PacmanQAgent):
           Should return Q(state,action) = w * featureVector
           where * is the dotProduct operator
         """
-        # print(self.getWeights())
-        # print(self.featExtractor.getFeatures(state,action), self.getWeights() * self.featExtractor.getFeatures(state,action))
-        # input('w')
+        # It took me quite a while to figure out
+        # that this Counter class is NOT from stdlib collections
+        # This Counter class implements the dot product for you
         return self.getWeights() * self.featExtractor.getFeatures(state, action)
 
     def update(self, state, action, nextState, reward):
@@ -182,10 +193,11 @@ class ApproximateQAgent(PacmanQAgent):
            Should update your weights based on transition
         """
         features = self.featExtractor.getFeatures(state, action)
+        # difference = [r + γ maxa′ Q(s′, a′)] − Q(s, a)
         delta = reward + self.discount * self.getValue(nextState) - self.getQValue(state, action)
-        delta *= self.alpha
         for feature in features:
-            self.weights[feature] += delta * features[feature]
+            # wi ← wi + α[difference]fi(s, a)
+            self.weights[feature] += self.alpha * delta * features[feature]
 
     def final(self, state):
         "Called at the end of each game."

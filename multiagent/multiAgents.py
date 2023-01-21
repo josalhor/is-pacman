@@ -581,7 +581,7 @@ def betterEvaluationFunction(currentGameState):
         total_score += 100 / (manhattanDistance(closestCapsule, pacman) ** 2)
 
     for ghost in newGhostStates:
-        d = manhattanDistance(ghost.getPosition(), pacman)
+        d = manhattanDistance(ghost.getPosition(), pacman)z
         if d == 0:
             total_score += -250
         else:
