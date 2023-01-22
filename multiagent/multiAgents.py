@@ -557,7 +557,7 @@ def betterEvaluationFunction(currentGameState):
     evaluation function (question 5).
 
     DESCRIPTION: The ghost will usually do teh following:
-        1- Bait the ghost arrount a capsule
+        1- Bait the ghost arround a capsule
         2- Eat the capsule
         3- Chase the ghost and eat it 
         4- Clear the surroundings of food
