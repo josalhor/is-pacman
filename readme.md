@@ -20,6 +20,9 @@ This is a quick overview of the functionality implemented. Further information a
 
 The most challanging part has been fine tunning the evaluation function and developing the iterative versions of the algorithms as there were minuances that could be easily overseen causing the algorithms to not work as expected or be not as efficient as they could be.
 
+- In order to try the iterative versions you can pass the tests by replacing the name "IterativeMinimaxAgent" to "MinimaxAgent" and just run the tests. The same thing happens with "IterativeAlphaBetaAgent". 
+
+
 # Second delivery contents
 
 

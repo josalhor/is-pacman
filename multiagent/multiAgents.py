@@ -78,7 +78,6 @@ class ReflexAgent(Agent):
         for position in food:
             d = manhattanDistance(position, newPos)
             total_score += 100 if d == 0 else 1.0 / ( (d ** 2))
-            print(total_score)
         for ghost in newGhostStates:
             d = manhattanDistance(ghost.getPosition(), newPos)
             if d > 1:
