@@ -404,25 +404,6 @@ class IterativeAlphaBetaAgent(MultiAgentSearchAgent):
         
         actions = root.best_action_to_take
         return actions[0]
-        v = float("-inf")
-        actions = []
-        for action in gameState.getLegalActions(agentIndex=0):
-            succ = gameState.getNextState(agentIndex=0, action=action)
-            u = self.min_value(
-                succ, agent=1, depth=self.depth, pruning=pruning
-            )
-            """
-            We removed this part as we don't need a list of actions, we want the first one
-            as we would have explored a more complete version of the tree
-            if u == v:
-                actions.append(action)
-            
-            """
-            if u > v:
-                v = u
-                actions = [action]
-            pruning["alpha"] = max(pruning["alpha"], v)
-        return actions[0]
 
     def min_value(self, gameState, agent, depth, pruning):
         if self.terminal_test(gameState, depth):
