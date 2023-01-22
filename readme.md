@@ -24,6 +24,11 @@ The most challanging part has been fine tunning the evaluation function and deve
 
 
 # Second delivery contents
+This is a quick overview of the functionality implemented.
 
-
-
+- Question 1 -> **valueIterationAgents.py**
+- Question 2 -> **analysis.py**
+- Question 3 -> **analysis.py**
+- Question 4 -> **qlearningAgents.py**
+- Question 5 -> **qlearningAgents.py**
+- Question 6 -> **qlearningAgents.py**
