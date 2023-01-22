@@ -120,8 +120,6 @@ class MultiAgentSearchAgent(Agent):
         return depth == 0 or state.isWin() or state.isLose()
 
 
-
-
 class MinimaxAgent(MultiAgentSearchAgent):
     """
     Your minimax agent (question 2)
@@ -195,108 +193,6 @@ class MinimaxAgent(MultiAgentSearchAgent):
             )
         return v
 
-class ExplorationNode:
-    def __init__(self, exploration, gameState, agent, depth, action=None, parent=None):
-        self.exploration = exploration
-        self.gameState = gameState
-        self.agent = agent
-        self.depth = depth
-        self.best_cost = None
-        self.parent = parent
-        self.action = action
-        self.best_action_to_take = []
-        self.valid_actions = None
-    
-    def is_max_node(self):
-        return self.agent == 0
-    
-    def new_cost(self, cost, action):
-        if self.best_cost is None:
-            self.best_cost = cost
-            self.best_action_to_take = [action]
-            return
-        if self.is_max_node():
-            if self.best_cost < cost:
-                self.best_cost = cost
-                self.best_action_to_take = [action]
-            if self.best_cost == cost:
-                self.best_action_to_take.append(action)
-        else:
-            if self.best_cost > cost:
-                self.best_cost = cost
-                self.best_action_to_take = [action]
-            if self.best_cost == cost:
-                self.best_action_to_take.append(action)
-    
-    def is_terminal(self):
-        return self.exploration.terminal_test(self.gameState, self.depth)
-    
-    @property
-    def explored(self):
-        if self.valid_actions is None:
-            self.valid_actions = list(self.gameState.getLegalActions(agentIndex=self.agent))
-            self.valid_actions = self.valid_actions[::-1]
-        return len(self.valid_actions) == 0
-    
-    def evaluate(self):
-        if not self.is_terminal():
-            evaluation = self.best_cost
-        else:
-            evaluation = self.exploration.evaluationFunction(self.gameState)
-
-        if self.parent is not None:
-            self.parent.new_cost(evaluation, self.action)
-        return evaluation
-    
-    def get_child_attributes(self):
-        next_depth = self.depth
-        next_agent = self.agent + 1
-        if next_agent == self.gameState.getNumAgents():
-            next_agent = 0
-            next_depth -= 1
-        return next_agent, next_depth
-
-    def get_successor(self):
-        next_agent, next_depth = self.get_child_attributes()
-        action = self.valid_actions.pop()
-        return ExplorationNode(
-            self.exploration,
-            self.gameState.getNextState(self.agent, action=action),
-            agent=next_agent,
-            depth=next_depth,
-            parent=self,
-            action=action
-        )  
-
-class AlphaBetaExplorationNode(ExplorationNode):
-    def __init__(self, *args, **kwargs):
-        self.pruning = kwargs.pop('pruning').copy()
-        super().__init__(*args, **kwargs)
-    
-    def new_cost(self, cost, action):
-        super().new_cost(cost, action)
-        if self.is_max_node():
-            self.pruning["alpha"] = max(self.pruning["alpha"], self.best_cost)
-            if self.best_cost > self.pruning["beta"]:
-                self.valid_actions = []
-        else:
-            self.pruning["beta"] = min(self.pruning["beta"], self.best_cost)
-            if self.best_cost < self.pruning["alpha"]:
-                self.valid_actions = []
-    
-    def get_successor(self):
-        next_agent, next_depth = self.get_child_attributes()
-        action = self.valid_actions.pop()
-        return AlphaBetaExplorationNode(
-            self.exploration,
-            self.gameState.getNextState(self.agent, action=action),
-            agent=next_agent,
-            depth=next_depth,
-            parent=self,
-            action=action,
-            pruning=self.pruning,
-        )  
-
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -324,7 +220,6 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
             as we would have explored a more complete version of the tree
             if u == v:
                 actions.append(action)
-            
             """
             if u > v:
                 v = u
@@ -372,111 +267,6 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
             _pruning["alpha"] = max(_pruning["alpha"], v)
         return v
 
-class IterativeAlphaBetaAgent(MultiAgentSearchAgent):
-    """
-    Your minimax agent with alpha-beta pruning (question 3)
-    """
-
-    def getAction(self, gameState):
-        """
-        Returns the minimax action using self.depth and self.evaluationFunction
-        """
-        "*** YOUR CODE HERE ***"
-        root = AlphaBetaExplorationNode(
-            self,
-            gameState,
-            agent=0,
-            depth=self.depth,
-            pruning={
-                "alpha": float("-inf"),
-                "beta": float("inf")
-            }
-        )
-        states = [root]
-        while states:
-            current = states.pop()        
-            if current.is_terminal() or current.explored:
-                current.evaluate()
-            else:
-                successor = current.get_successor()
-                states.append(current)
-                states.append(successor)
-        
-        actions = root.best_action_to_take
-        return actions[0]
-
-    def min_value(self, gameState, agent, depth, pruning):
-        if self.terminal_test(gameState, depth):
-            return self.evaluationFunction(gameState)
-
-        v = float("inf")
-        _pruning = pruning.copy()
-        for action in gameState.getLegalActions(agentIndex=agent):
-            succ = gameState.getNextState(agent, action=action)
-            if agent == gameState.getNumAgents() - 1:
-                v = min(
-                    v, self.max_value(succ, agent=0, depth=depth -1, pruning=_pruning)
-                )
-            else:
-                v = min(
-                    v, self.min_value(succ, agent=agent +1, depth=depth, pruning=_pruning)
-                )
-            
-            if v < pruning["alpha"]:
-                return v
-            _pruning["beta"] = min(_pruning["beta"], v)
-
-        return v
-
-    def max_value(self, gameState, agent, depth, pruning):
-        if self.terminal_test(gameState, depth):
-            return self.evaluationFunction(gameState)
-
-        v = float("-inf")
-        _pruning=pruning.copy()
-        for action in gameState.getLegalActions(agent):
-            succ = gameState.getNextState(agent, action=action)
-            v = max(
-                v, self.min_value(succ, agent=1, depth=depth, pruning=_pruning)
-            )
-
-            if v > pruning["beta"]:
-                return v
-            _pruning["alpha"] = max(_pruning["alpha"], v)
-        return v
-
-
-
-
-class IterativeMinimaxAgent(MultiAgentSearchAgent):
-    """
-    Your minimax agent with alpha-beta pruning (question 3)
-    """
-
-    def getAction(self, gameState):
-        """
-        Returns the minimax action using self.depth and self.evaluationFunction
-        """
-        "*** YOUR CODE HERE ***"
-
-        root = ExplorationNode(
-            self,
-            gameState,
-            agent=0,
-            depth=self.depth
-        )
-        states = [root]
-        while states:
-            current = states.pop()        
-            if current.is_terminal() or current.explored:
-                current.evaluate()
-            else:
-                successor = current.get_successor()
-                states.append(current)
-                states.append(successor)
-        
-        actions = root.best_action_to_take
-        return actions[0]
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
@@ -532,12 +322,248 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
             )
         return v
 
+
+""" ExplorationNode
+In order to properly develop the iterative version of MinMax and AlphaBeta it 
+is required to store some additional information about the state of the 
+explored tree and how the different states relate. This is a helper class that
+allows us to store this information.
+"""
+class ExplorationNode:
+    def __init__(self, exploration, gameState, agent, depth, action=None, parent=None):
+        self.exploration = exploration
+        self.gameState = gameState
+        self.agent = agent
+        self.depth = depth
+        self.best_cost = None
+        self.parent = parent
+        self.action = action
+        self.best_action_to_take = []
+        self.valid_actions = None
+    
+    def is_max_node(self):
+        """
+        Checks if the agent for this node is pacman
+        """
+        return self.agent == 0
+    
+    def new_cost(self, cost, action):
+        """
+        Computes the cost of the node.
+        As we use the explorationNode for both, max and min nodes,
+        we decided not to set any cost at the beggining and take the
+        first one as the starting one, we could have taken anothe aproach
+        informing at the __init__ function wether if this was a max or min
+        node, but had no real benefit.
+        """
+        if self.best_cost is None:
+            self.best_cost = cost
+            self.best_action_to_take = [action]
+            return
+            # Max node case
+        if self.is_max_node():
+            if self.best_cost < cost:
+                self.best_cost = cost
+                # Change all actions for the new best one
+                self.best_action_to_take = [action]
+            if self.best_cost == cost:
+                # Append the action to the current list of best one's
+                self.best_action_to_take.append(action)
+        # Min node case
+        else:
+            if self.best_cost > cost:
+                self.best_cost = cost
+                self.best_action_to_take = [action]
+            if self.best_cost == cost:
+                self.best_action_to_take.append(action)
+    
+    def is_terminal(self):
+        """
+        Checks if the node is a terminal node using the MultiAgentSearchAgent
+        terminal test functionality implemented at class
+        """
+        return self.exploration.terminal_test(self.gameState, self.depth)
+    
+    @property
+    def explored(self):
+        """
+        IMPORTANT!
+        We consider a node explored once we have fully visited all his
+        successor states, else, we need to still keep track of it
+        """
+        if self.valid_actions is None:
+            self.valid_actions = list(self.gameState.getLegalActions(agentIndex=self.agent))
+            # IMPORTANT!
+            # reverse the array, if not, we explore the tree from the right and
+            # will not behave as the tests expect
+            self.valid_actions = self.valid_actions[::-1]
+        return len(self.valid_actions) == 0
+    
+    def evaluate(self):
+        """
+        Logic to compute the cost of a node depending on wheter it is a
+        terminal node, the root node of our exploration tree or a middle one
+        """
+        if not self.is_terminal():
+            evaluation = self.best_cost
+        else:
+            evaluation = self.exploration.evaluationFunction(self.gameState)
+
+        # Trigger update on parent node if not root
+        if self.parent is not None:
+            self.parent.new_cost(evaluation, self.action)
+        return evaluation
+    
+    def get_child_attributes(self):
+        # we decrease the depth only every max node
+        next_depth = self.depth
+        next_agent = self.agent + 1
+        # we need to cycle throw the agents 0 - (numAgents -1)
+        if next_agent == self.gameState.getNumAgents():
+            next_agent = 0
+            next_depth -= 1
+        return next_agent, next_depth
+
+    def get_successor(self):
+        """
+        Creates a successor ExplorationNode taking one of the valid actions
+        available
+        """
+        next_agent, next_depth = self.get_child_attributes()
+        action = self.valid_actions.pop()
+        return ExplorationNode(
+            self.exploration,
+            self.gameState.getNextState(self.agent, action=action),
+            agent=next_agent,
+            depth=next_depth,
+            parent=self,
+            action=action
+        )  
+
+
+class IterativeMinimaxAgent(MultiAgentSearchAgent):
+    """
+    Your minimax agent with alpha-beta pruning (question 3)
+    """
+
+    def getAction(self, gameState):
+        """
+        Returns the minimax action using self.depth and self.evaluationFunction
+        """
+        "*** YOUR CODE HERE ***"
+        # Initialize the stack of states with the root Exploration node
+        root = ExplorationNode(
+            self,
+            gameState,
+            agent=0,
+            depth=self.depth
+        )
+        states = [root]
+        # Define the loop
+        while states:
+            current = states.pop()        
+            if current.is_terminal() or current.explored:
+                current.evaluate()
+            else:
+                # While the node is not fully explored, keep it in the stack, 
+                # it is important to append it BEFORE the successor, if not you
+                # keep exploring the parent without any possible update
+                successor = current.get_successor()
+                states.append(current)
+                states.append(successor)
+        
+        actions = root.best_action_to_take
+        return actions[0]
+
+
+""" AlphaBetaExplorationNode
+Expands the functionality descrived in Exploration node, as we need to take
+into consideration additional atributes, the prunning
+"""
+class AlphaBetaExplorationNode(ExplorationNode):
+    def __init__(self, *args, **kwargs):
+        self.pruning = kwargs.pop('pruning').copy()
+        super().__init__(*args, **kwargs)
+    
+    def new_cost(self, cost, action):
+        """
+        After checking for the new costs as before, decide if it is worth to
+        keep exploring this node, if not, remove the valid actions as it will
+        later be marked as explored
+        """
+        super().new_cost(cost, action)
+        if self.is_max_node():
+            self.pruning["alpha"] = max(self.pruning["alpha"], self.best_cost)
+            if self.best_cost > self.pruning["beta"]:
+                self.valid_actions = []
+        else:
+            self.pruning["beta"] = min(self.pruning["beta"], self.best_cost)
+            if self.best_cost < self.pruning["alpha"]:
+                self.valid_actions = []
+    
+    def get_successor(self):
+        """
+        replaces the original ExplorationNode with AlphaBetaExplorationNode
+        """
+        next_agent, next_depth = self.get_child_attributes()
+        action = self.valid_actions.pop()
+        return AlphaBetaExplorationNode(
+            self.exploration,
+            self.gameState.getNextState(self.agent, action=action),
+            agent=next_agent,
+            depth=next_depth,
+            parent=self,
+            action=action,
+            pruning=self.pruning,
+        )
+
+
+class IterativeAlphaBetaAgent(MultiAgentSearchAgent):
+    """
+    Your minimax agent with alpha-beta pruning (question 3)
+    """
+
+    def getAction(self, gameState):
+        """
+        Returns the minimax action using self.depth and self.evaluationFunction
+        """
+        "*** YOUR CODE HERE ***"
+        root = AlphaBetaExplorationNode(
+            self,
+            gameState,
+            agent=0,
+            depth=self.depth,
+            pruning={
+                "alpha": float("-inf"),
+                "beta": float("inf")
+            }
+        )
+        states = [root]
+        while states:
+            current = states.pop()        
+            if current.is_terminal() or current.explored:
+                current.evaluate()
+            else:
+                successor = current.get_successor()
+                states.append(current)
+                states.append(successor)
+        
+        actions = root.best_action_to_take
+        return actions[0]
+
+
 def betterEvaluationFunction(currentGameState):
     """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
     evaluation function (question 5).
 
-    DESCRIPTION: <write something here so we know what you did>
+    DESCRIPTION: The ghost will usually do teh following:
+        1- Bait the ghost arrount a capsule
+        2- Eat the capsule
+        3- Chase the ghost and eat it 
+        4- Clear the surroundings of food
+        5- Go to the next capusle
+        6- Repeat
     """
     score = currentGameState.getScore()
     food = currentGameState.getFood().asList()
@@ -546,11 +572,17 @@ def betterEvaluationFunction(currentGameState):
     newGhostStates = currentGameState.getGhostStates()
     
     total_score = score
+    # compute a value for the current food in the gameState based on
+    # the distance (exponentialy), the further the distance, the less
+    # value the fruit has.
+
+    # We want to incentivise pacman to have fruits really close
     for position in food:
         d = manhattanDistance(position, pacman)
         assert d > 0
         total_score += 5.0 / (d ** 2)
     
+    # determine the closest capsule
     closestCapsule = None
     for capsule in capsules:
         if closestCapsule is None:
@@ -558,17 +590,22 @@ def betterEvaluationFunction(currentGameState):
         elif manhattanDistance(capsule, pacman) < manhattanDistance(closestCapsule, pacman):
             closestCapsule = capsule
     
+    # Add value for being close to a capsule, it helps reaching avg +1000
     if closestCapsule is not None:
         total_score += 100 / (manhattanDistance(closestCapsule, pacman) ** 2)
 
     for ghost in newGhostStates:
-        d = manhattanDistance(ghost.getPosition(), pacman)z
+        d = manhattanDistance(ghost.getPosition(), pacman)
+        # You die, decrease value a lot
         if d == 0:
             total_score += -250
         else:
             base = -10
+            # If ghost is scared or we have a capsule near by, we can eat it, so we value the situation as positive
             if ghost.scaredTimer or (closestCapsule is not None and d >= manhattanDistance(closestCapsule, pacman)):
                 base = 50
+            # If the ghost is not scared or easily eatable we will penalise for
+            # having a ghost near by, else, we incentivise chasing it!
             total_score += base / (d ** 2)
     return total_score
 
