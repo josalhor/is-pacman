@@ -78,7 +78,6 @@ class ReflexAgent(Agent):
         for position in food:
             d = manhattanDistance(position, newPos)
             total_score += 100 if d == 0 else 1.0 / ( (d ** 2))
-            print(total_score)
         for ghost in newGhostStates:
             d = manhattanDistance(ghost.getPosition(), newPos)
             if d > 1:
@@ -381,7 +380,6 @@ class IterativeAlphaBetaAgent(MultiAgentSearchAgent):
         """
         Returns the minimax action using self.depth and self.evaluationFunction
         """
-        "*** YOUR CODE HERE ***"
         root = AlphaBetaExplorationNode(
             self,
             gameState,
@@ -404,67 +402,6 @@ class IterativeAlphaBetaAgent(MultiAgentSearchAgent):
         
         actions = root.best_action_to_take
         return actions[0]
-        v = float("-inf")
-        actions = []
-        for action in gameState.getLegalActions(agentIndex=0):
-            succ = gameState.getNextState(agentIndex=0, action=action)
-            u = self.min_value(
-                succ, agent=1, depth=self.depth, pruning=pruning
-            )
-            """
-            We removed this part as we don't need a list of actions, we want the first one
-            as we would have explored a more complete version of the tree
-            if u == v:
-                actions.append(action)
-            
-            """
-            if u > v:
-                v = u
-                actions = [action]
-            pruning["alpha"] = max(pruning["alpha"], v)
-        return actions[0]
-
-    def min_value(self, gameState, agent, depth, pruning):
-        if self.terminal_test(gameState, depth):
-            return self.evaluationFunction(gameState)
-
-        v = float("inf")
-        _pruning = pruning.copy()
-        for action in gameState.getLegalActions(agentIndex=agent):
-            succ = gameState.getNextState(agent, action=action)
-            if agent == gameState.getNumAgents() - 1:
-                v = min(
-                    v, self.max_value(succ, agent=0, depth=depth -1, pruning=_pruning)
-                )
-            else:
-                v = min(
-                    v, self.min_value(succ, agent=agent +1, depth=depth, pruning=_pruning)
-                )
-            
-            if v < pruning["alpha"]:
-                return v
-            _pruning["beta"] = min(_pruning["beta"], v)
-
-        return v
-
-    def max_value(self, gameState, agent, depth, pruning):
-        if self.terminal_test(gameState, depth):
-            return self.evaluationFunction(gameState)
-
-        v = float("-inf")
-        _pruning=pruning.copy()
-        for action in gameState.getLegalActions(agent):
-            succ = gameState.getNextState(agent, action=action)
-            v = max(
-                v, self.min_value(succ, agent=1, depth=depth, pruning=_pruning)
-            )
-
-            if v > pruning["beta"]:
-                return v
-            _pruning["alpha"] = max(_pruning["alpha"], v)
-        return v
-
-
 
 
 class IterativeMinimaxAgent(MultiAgentSearchAgent):
@@ -581,7 +518,7 @@ def betterEvaluationFunction(currentGameState):
         total_score += 100 / (manhattanDistance(closestCapsule, pacman) ** 2)
 
     for ghost in newGhostStates:
-        d = manhattanDistance(ghost.getPosition(), pacman)z
+        d = manhattanDistance(ghost.getPosition(), pacman)
         if d == 0:
             total_score += -250
         else:
