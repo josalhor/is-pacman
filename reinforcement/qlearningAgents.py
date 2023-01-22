@@ -120,7 +120,7 @@ class QLearningAgent(ReinforcementAgent):
         # Programming it is easier than understading what it is doing tho
         # Q(s, a) ← (1 − α)Q(s, a) + α[r + γ max a′ / Q(s′, a′) /]
         previous_weight = (1 - self.alpha) * self.getQValue(state, action)
-        new_weight = self.alpha * (reward + self.discount * self.computeValueFromQValues(nextState))
+        new_weight = self.alpha * (reward + self.discount * self.getValue(nextState))
         self.qvalues[(state, action)] = previous_weight + new_weight
 
     def getPolicy(self, state):
